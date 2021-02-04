@@ -12,7 +12,7 @@ const inputElevation = document.querySelector(".form__input--elevation");
 
 class Workout {
   date = new Date();
-  id = (new Date() + "").slice(-10);
+  id = (Date.now() + "").slice(-10);
   constructor(coords, distance, duration) {
     this.coords = coords;
     this.duration = duration;
@@ -53,13 +53,16 @@ class Cycling extends Workout {
 }
 class App {
   #map;
+  #zoomLevel = 13;
   #mapEvent;
   #movments = [];
   constructor() {
     this._getPosition();
     form.addEventListener("submit", this._newWorkout.bind(this));
+    this._getlocalStorage();
 
     inputType.addEventListener("change", this._toggleElevationFields);
+    containerWorkouts.addEventListener('click' , this._moveToMarker.bind(this))
   }
 
   _getPosition() {
@@ -78,12 +81,15 @@ class App {
     const { longitude } = position.coords;
     const coords = [latitude, longitude];
     console.log(`https://www.google.co.in/maps/@${latitude},${longitude}`);
-    this.#map = L.map("map").setView(coords, 13);
+    this.#map = L.map("map").setView(coords, this.#zoomLevel);
     L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(this.#map);
     this.#map.on("click", this._showForm.bind(this));
+    this.#movments.forEach(work=>{
+      this._renderWorkout(work)
+    })
   }
   _showForm(mapEve) {
     this.#mapEvent = mapEve;
@@ -132,7 +138,6 @@ class App {
       }
 
       workout = new Cycling([lat, lng], duration, distance, elevation);
-      // this._renderWorkout(type)
     }
     this.#movments.push(workout);
     console.log(this.#movments);
@@ -142,6 +147,9 @@ class App {
     this._hideForm();
 
     // form.classList.add("hidden");
+    // set local storage 
+    this._setLocalStorage()
+
   }
   _renderWorkout(workout) {
     L.marker(workout.coords)
@@ -168,7 +176,7 @@ class App {
 
   _renderWorkoutSideElement(workout) {
     let html = `
-    <li class="workout workout--${workout.type}" data-id="1234567890">
+    <li class="workout workout--${workout.type}" data-id=${workout.id}>
       <h2 class="workout__title">${workout.description}</h2>
       <div class="workout__details">
         <span class="workout__icon">${
@@ -212,5 +220,31 @@ class App {
     }
     form.insertAdjacentHTML("afterend", html);
   }
+  _moveToMarker(e){
+    const ele = e.target.closest('.workout')
+    if(!ele) return 
+    const workout = this.#movments.find(work=>work.id === ele.dataset.id);
+    this.#map.setView(workout.coords, (this.#zoomLevel + 1) , {
+      animate:true,
+      pan:{
+        duration : 1,
+      }
+    })
+  }
+  _setLocalStorage(){
+    localStorage.setItem('workouts' , JSON.stringify(this.#movments))
+
+  }
+  _getlocalStorage(){
+    const data = JSON.parse(localStorage.getItem('workouts'))
+    console.log(data);
+    this.#movments = data;
+    if(!data) return 
+    this.#movments.forEach(work=>{
+      this._renderWorkoutSideElement(work)
+    })
+  }
+
+
 }
 const app = new App();
